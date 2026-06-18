@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vibe · Projectile Motion</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        :root {
+            --glow:#8b5cf6; --glow-soft:#a78bfa; --grad-start:#7c3aed; --grad-end:#4f46e5;
+            --blob1:#6d28d9; --blob2:#4f46e5; --blob3:#312e81; --tab-bg:rgba(139,92,246,0.2);
+            --bg:#0b0716; --card:rgba(255,255,255,0.04); --border:rgba(255,255,255,0.06);
+            --text:#f1f5f9; --soft:rgba(255,255,255,0.5); --stat:rgba(0,0,0,0.35);
+        }
+        [data-theme="teal"] { --glow:#2dd4bf; --glow-soft:#5eead4; --grad-start:#0d9488; --grad-end:#14b8a6; --blob1:#115e59; --blob2:#0f766e; --blob3:#042f2e; --tab-bg:rgba(45,212,191,0.2); }
+        [data-theme="sunset"] { --glow:#fb923c; --glow-soft:#fdba74; --grad-start:#ea580c; --grad-end:#f97316; --blob1:#7c2d12; --blob2:#9a3412; --blob3:#431407; --tab-bg:rgba(251,146,60,0.2); }
+        body {
+            min-height:100vh; display:flex; justify-content:center; align-items:center;
+            font-family:system-ui, sans-serif; background:var(--bg); padding:20px; transition:0.5s;
+        }
+        .blob {
+            position:fixed; border-radius:50%; filter:blur(80px); opacity:0.3; z-index:0;
+            animation:floatBlob 20s infinite alternate ease-in-out;
+        }
+        .blob-1 { width:400px; height:400px; top:-100px; left:-100px; background:var(--blob1); }
+        .blob-2 { width:500px; height:500px; bottom:-150px; right:-150px; background:var(--blob2); animation-delay:-7s; }
+        .blob-3 { width:300px; height:300px; top:40%; left:60%; background:var(--blob3); animation-delay:-14s; opacity:0.15; }
+        @keyframes floatBlob { 0%{transform:translate(0,0) scale(1);} 50%{transform:translate(50px,-40px) scale(1.1);} 100%{transform:translate(-30px,40px) scale(0.9);} }
+        .container {
+            position:relative; z-index:10; width:100%; max-width:1020px;
+            background:var(--card); backdrop-filter:blur(24px); border-radius:56px;
+            padding:28px 32px 36px; border:1px solid var(--border);
+            box-shadow:0 40px 80px -12px rgba(0,0,0,0.8);
+        }
+        .header-row { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; margin-bottom:18px; }
+        .title-group h1 { font-size:1.9rem; font-weight:700; background:linear-gradient(135deg,var(--glow),var(--glow-soft)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .title-group .sub { color:var(--soft); font-size:0.8rem; border-left:2px solid var(--glow); padding-left:14px; }
+        .theme-tabs { display:flex; gap:4px; background:rgba(0,0,0,0.3); padding:4px; border-radius:40px; border:1px solid rgba(255,255,255,0.04); }
+        .tab-btn { padding:8px 18px; border:none; border-radius:30px; font-size:0.75rem; font-weight:600; color:var(--soft); background:transparent; cursor:pointer; transition:0.3s; font-family:inherit; }
+        .tab-btn:hover { color:white; background:rgba(255,255,255,0.05); }
+        .tab-btn.active { color:white; background:var(--tab-bg); box-shadow:0 0 20px var(--glow); }
+        .tab-btn .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:middle; }
+        .tab-btn.purple .dot { background:#8b5cf6; }
+        .tab-btn.teal .dot { background:#2dd4bf; }
+        .tab-btn.sunset .dot { background:#fb923c; }
+        .canvas-wrapper { background:rgba(0,0,0,0.5); border-radius:28px; padding:10px; border:1px solid var(--border); margin-bottom:24px; }
+        canvas { display:block; width:100%; height:auto; background:#08040f; border-radius:20px; aspect-ratio:900/420; cursor:crosshair; }
+        .controls-grid { display:grid; grid-template-columns:1.2fr 1fr; gap:28px; }
+        @media (max-width:700px){ .controls-grid{grid-template-columns:1fr;} }
+        .slider-group { display:flex; flex-direction:column; gap:18px; }
+        .slider-item { display:flex; flex-direction:column; gap:4px; }
+        .slider-item label { display:flex; justify-content:space-between; color:var(--soft); font-weight:500; font-size:0.85rem; }
+        .slider-item label span:last-child { color:var(--glow-soft); font-weight:600; background:rgba(255,255,255,0.04); padding:0 14px; border-radius:40px; font-size:0.8rem; }
+        input[type=range] { -webkit-appearance:none; appearance:none; width:100%; height:5px; border-radius:10px; background:rgba(255,255,255,0.08); outline:none; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:20px; height:20px; border-radius:50%; background:var(--glow); cursor:pointer; box-shadow:0 0 24px var(--glow); border:2px solid white; }
+        .btn-fire { padding:15px 0; border:none; border-radius:60px; font-weight:700; font-size:1.15rem; background:linear-gradient(135deg,var(--grad-start),var(--grad-end)); color:white; cursor:pointer; box-shadow:0 8px 28px var(--grad-start); transition:0.25s; border:1px solid rgba(255,255,255,0.15); margin-top:6px; }
+        .btn-fire:hover:not(:disabled){ transform:translateY(-3px); box-shadow:0 16px 44px var(--grad-start); }
+        .btn-fire:disabled{ opacity:0.4; cursor:not-allowed; }
+        .stats-panel { display:flex; flex-direction:column; gap:12px; }
+        .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .stat-card { background:var(--stat); border-radius:18px; padding:14px 16px; border:1px solid rgba(255,255,255,0.03); }
+        .stat-card:hover { border-color:var(--glow); }
+        .stat-card .label { font-size:0.65rem; text-transform:uppercase; letter-spacing:1.5px; color:var(--soft); font-weight:600; }
+        .stat-card .value { font-size:1.5rem; font-weight:700; color:var(--text); margin-top:2px; }
+        .stat-card .value.highlight { color:var(--glow-soft); }
+        .stat-card .sub-unit { font-size:0.7rem; color:var(--soft); margin-left:4px; }
+        .formula-badge { background:rgba(0,0,0,0.3); padding:10px 16px; border-radius:60px; text-align:center; font-size:0.75rem; color:var(--soft); border:1px dashed var(--glow); grid-column:span 2; font-family:monospace; }
+        .formula-badge strong { color:var(--glow-soft); }
+        @media (max-width:480px){ .container{padding:16px;} .title-group h1{font-size:1.4rem;} .stats-grid{grid-template-columns:1fr 1fr;} .stat-card .value{font-size:1.2rem;} .tab-btn{padding:6px 12px;font-size:0.7rem;} }
+    </style>
+</head>
+<body>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <div class="container">
+        <div class="header-row">
+            <div class="title-group">
+                <h1>🎯 Projectile Motion</h1>
+                <div class="sub">Predictive Trajectory + Theme Tabs</div>
+            </div>
+            <div class="theme-tabs">
+                <button class="tab-btn purple active" data-theme="purple"><span class="dot"></span>Purple</button>
+                <button class="tab-btn teal" data-theme="teal"><span class="dot"></span>Teal</button>
+                <button class="tab-btn sunset" data-theme="sunset"><span class="dot"></span>Sunset</button>
+            </div>
+        </div>
+
+        <div class="canvas-wrapper">
+            <canvas id="simCanvas" width="900" height="420"></canvas>
+        </div>
+
+        <div class="controls-grid">
+            <div class="slider-group">
+                <div class="slider-item">
+                    <label><span>🚀 Initial Velocity (v₀)</span><span id="speedVal">25 m/s</span></label>
+                    <input type="range" id="speedSlider" min="5" max="55" value="25" step="0.5" />
+                </div>
+                <div class="slider-item">
+                    <label><span>📐 Launch Angle (θ)</span><span id="angleVal">45°</span></label>
+                    <input type="range" id="angleSlider" min="5" max="85" value="45" step="1" />
+                </div>
+                <button class="btn-fire" id="fireBtn">🚀 Launch</button>
+            </div>
+
+            <div class="stats-panel">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="label">⏱️ Time</div>
+                        <div class="value" id="timeDisplay">0.00 <span class="sub-unit">s</span></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">📏 Range</div>
+                        <div class="value highlight" id="rangeDisplay">0.00 <span class="sub-unit">m</span></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="label">⬆️ Max Height</div>
+                        <div class="value" id="heightDisplay">0.00 <span class="sub-unit">m</span></div>
+                    </div>
+                    <div class="formula-badge">
+                        ⚡ R = (v² × sin(2θ)) / 9.8 = <strong id="rangePreview">0.00 m</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // ===== STORAGE KEY =====
+            const STORAGE_KEY = 'projectile_theme';
+
+            // ===== CANVAS SETUP =====
+            const canvas = document.getElementById('simCanvas');
+            const ctx = canvas.getContext('2d');
+            const W = 900, H = 420;
+            const GROUND_Y = 365, SCALE = 4.5, START_X = 80;
+            const g = 9.8;
+            let dt = 0.02;
+
+            // ===== DOM REFS =====
+            const speedSlider = document.getElementById('speedSlider');
+            const angleSlider = document.getElementById('angleSlider');
+            const speedVal = document.getElementById('speedVal');
+            const angleVal = document.getElementById('angleVal');
+            const fireBtn = document.getElementById('fireBtn');
+            const timeDisplay = document.getElementById('timeDisplay');
+            const rangeDisplay = document.getElementById('rangeDisplay');
+            const heightDisplay = document.getElementById('heightDisplay');
+            const rangePreview = document.getElementById('rangePreview');
+
+            // ===== STATE =====
+            let v0 = 25, angleDeg = 45, angleRad = 45 * Math.PI / 180;
+            let projX = 0, projY = 0, time = 0;
+            let isFlying = false, animId = null, trail = [];
+            let maxHeight = 0;
+
+            // ===== THEME LOGIC (with LocalStorage) =====
+            function setTheme(theme) {
+                document.documentElement.setAttribute('data-theme', theme);
+                document.querySelectorAll('.tab-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.theme === theme);
+                });
+                localStorage.setItem(STORAGE_KEY, theme);
+                if (isFlying) {
+                    if (animId) cancelAnimationFrame(animId);
+                    isFlying = false;
+                    fireBtn.disabled = false;
+                }
+                resetProjectile();
+            }
+
+            // Load saved theme
+            const savedTheme = localStorage.getItem(STORAGE_KEY) || 'purple';
+            setTheme(savedTheme);
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    setTheme(this.dataset.theme);
+                });
+            });
+
+            // ===== HELPER: GET CURRENT THEME COLORS =====
+            function getGlowColor() {
+                return getComputedStyle(document.documentElement).getPropertyValue('--glow').trim() || '#8b5cf6';
+            }
+            function getGlowSoft() {
+                return getComputedStyle(document.documentElement).getPropertyValue('--glow-soft').trim() || '#a78bfa';
+            }
+
+            // ===== CONVERSION =====
+            function toPixelX(m) { return START_X + m * SCALE; }
+            function toPixelY(m) { return GROUND_Y - m * SCALE; }
+
+            // ===== DRAWING =====
+            function drawPredictedPath() {
+                const currentV = parseFloat(speedSlider.value);
+                const currentAng = parseFloat(angleSlider.value) * Math.PI / 180;
+                const steps = 60;
+                const glow = getGlowColor();
+
+                ctx.save();
+                ctx.setLineDash([6, 8]);
+                ctx.strokeStyle = glow;
+                ctx.globalAlpha = 0.35;
+                ctx.lineWidth = 2.5;
+                ctx.shadowBlur = 0;
+                ctx.beginPath();
+                let first = true;
+                const totalT = (2 * currentV * Math.sin(currentAng)) / g;
+                for (let i = 0; i <= steps; i++) {
+                    let t = (i / steps) * totalT;
+                    let x = currentV * Math.cos(currentAng) * t;
+                    let y = currentV * Math.sin(currentAng) * t - 0.5 * g * t * t;
+                    if (y < 0) y = 0;
+                    let px = toPixelX(x);
+                    let py = toPixelY(y);
+                    if (py > GROUND_Y) py = GROUND_Y;
+                    if (first) { ctx.moveTo(px, py); first = false; }
+                    else ctx.lineTo(px, py);
+                }
+                ctx.stroke();
+                ctx.restore();
+
+                const thRange = (currentV * currentV * Math.sin(2 * currentAng)) / g;
+                rangePreview.textContent = thRange.toFixed(2) + ' m';
+            }
+
+            function drawStaticScene() {
+                ctx.clearRect(0, 0, W, H);
+                ctx.fillStyle = '#08040f';
+                ctx.fillRect(0, 0, W, H);
+
+                ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+                ctx.lineWidth = 1;
+                for (let i = 0; i < W; i += 40) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,H); ctx.stroke(); }
+                for (let i = 0; i < H; i += 40) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(W,i); ctx.stroke(); }
+
+                const glow = getGlowColor();
+                ctx.shadowColor = glow;
+                ctx.shadowBlur = 18;
+                ctx.beginPath();
+                ctx.moveTo(0, GROUND_Y);
+                ctx.lineTo(W, GROUND_Y);
+                ctx.strokeStyle = glow;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                ctx.beginPath();
+                ctx.arc(START_X, GROUND_Y, 6, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.shadowColor = glow;
+                ctx.shadowBlur = 22;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                ctx.fillStyle = 'rgba(255,255,255,0.12)';
+                ctx.font = '11px monospace';
+                ctx.fillText('0 m', 20, GROUND_Y - 10);
+                ctx.fillText('Range →', 780, GROUND_Y - 10);
+
+                drawPredictedPath();
+            }
+
+            function drawSceneWithTrail() {
+                drawStaticScene();
+
+                if (trail.length > 1) {
+                    const soft = getGlowSoft();
+                    for (let i = 1; i < trail.length; i++) {
+                        let p1 = trail[i-1], p2 = trail[i];
+                        ctx.beginPath();
+                        ctx.moveTo(toPixelX(p1.x), toPixelY(p1.y));
+                        ctx.lineTo(toPixelX(p2.x), toPixelY(p2.y));
+                        ctx.strokeStyle = `rgba(255,255,255,${0.15 + (i / trail.length) * 0.4})`;
+                        ctx.lineWidth = 3.5;
+                        ctx.shadowColor = soft;
+                        ctx.shadowBlur = 12;
+                        ctx.stroke();
+                    }
+                    ctx.shadowBlur = 0;
+                }
+
+                let px = toPixelX(projX);
+                let py = toPixelY(projY);
+                if (py > GROUND_Y) py = GROUND_Y;
+
+                const glow = getGlowColor();
+                const grad = ctx.createRadialGradient(px, py, 2, px, py, 34);
+                grad.addColorStop(0, 'rgba(255,255,255,1)');
+                grad.addColorStop(0.2, glow);
+                grad.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(px, py, 34, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.shadowColor = glow;
+                ctx.shadowBlur = 32;
+                ctx.beginPath();
+                ctx.arc(px, py, 9, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+
+            // ===== PHYSICS =====
+            function updateStats(t, r, h) {
+                timeDisplay.textContent = t.toFixed(2);
+                rangeDisplay.textContent = r.toFixed(2);
+                heightDisplay.textContent = h.toFixed(2);
+            }
+
+            function resetProjectile() {
+                if (animId) { cancelAnimationFrame(animId); animId = null; }
+                isFlying = false;
+                projX = 0; projY = 0; time = 0;
+                trail = []; maxHeight = 0;
+                fireBtn.disabled = false;
+                drawSceneWithTrail();
+                const v = parseFloat(speedSlider.value);
+                const a = parseFloat(angleSlider.value) * Math.PI / 180;
+                const r = (v * v * Math.sin(2 * a)) / g;
+                rangePreview.textContent = r.toFixed(2) + ' m';
+                updateStats(0, 0, 0);
+            }
+
+            function physicsStep() {
+                if (!isFlying) return false;
+                let vx = v0 * Math.cos(angleRad);
+                let vy = v0 * Math.sin(angleRad);
+                time += dt;
+                let x = vx * time;
+                let y = vy * time - 0.5 * g * time * time;
+                if (y < 0) {
+                    time = (2 * v0 * Math.sin(angleRad)) / g;
+                    x = v0 * Math.cos(angleRad) * time;
+                    y = 0;
+                    projX = x; projY = y;
+                    isFlying = false;
+                    if (animId) { cancelAnimationFrame(animId); animId = null; }
+                    drawSceneWithTrail();
+                    updateStats(time, x, maxHeight);
+                    fireBtn.disabled = false;
+                    return false;
+                }
+                projX = x; projY = y;
+                if (projY > maxHeight) maxHeight = projY;
+                if (trail.length === 0 || time % 0.08 < dt) {
+                    trail.push({ x: projX, y: projY });
+                }
+                drawSceneWithTrail();
+                updateStats(time, projX, maxHeight);
+                return true;
+            }
+
+            function animate() {
+                if (!isFlying) { fireBtn.disabled = false; return; }
+                const keep = physicsStep();
+                if (keep) animId = requestAnimationFrame(animate);
+                else { fireBtn.disabled = false; }
+            }
+
+            function launch() {
+                if (isFlying) {
+                    if (animId) cancelAnimationFrame(animId);
+                    isFlying = false;
+                }
+                v0 = parseFloat(speedSlider.value);
+                angleDeg = parseFloat(angleSlider.value);
+                angleRad = angleDeg * Math.PI / 180;
+                projX = 0; projY = 0; time = 0;
+                maxHeight = 0; trail = [];
+                updateStats(0, 0, 0);
+                isFlying = true;
+                fireBtn.disabled = true;
+                if (animId) cancelAnimationFrame(animId);
+                animate();
+            }
+
+            // ===== SLIDER EVENTS =====
+            function updateSliderLabels() {
+                speedVal.textContent = parseFloat(speedSlider.value).toFixed(1) + ' m/s';
+                angleVal.textContent = parseFloat(angleSlider.value).toFixed(0) + '°';
+                if (!isFlying) resetProjectile();
+            }
+            speedSlider.addEventListener('input', updateSliderLabels);
+            angleSlider.addEventListener('input', updateSliderLabels);
+            fireBtn.addEventListener('click', launch);
+
+            // ===== INIT =====
+            updateSliderLabels();
+            resetProjectile();
+
+            window.addEventListener('resize', () => { if (!isFlying) resetProjectile(); });
+
+        })();
+    </script>
+</body>
+</html>
